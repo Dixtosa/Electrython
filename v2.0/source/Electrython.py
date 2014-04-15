@@ -11,26 +11,31 @@ class Electrython(wx.Frame):
 	RADIUS = 15
 	ZOOM = 0.001
 	DELTA_ON_FIELD_LINES = 10
+	BACKGROUNDCOLOR = (0xA9, 0xA0, 0x83)
 	def __init__(self, parent, id, title):
 		wx.Frame.__init__(self, parent, id, title,(0,0), wx.Size(1024, 768))
 		self.p1=wx.Panel(self,-1,(0,0),wx.Size(800,1000))
 		self.p2=wx.Panel(self,-1,(800,0),wx.Size(1000,1000))
-		
+		self.p1.SetBackgroundColour(self.BACKGROUNDCOLOR)
+
 		self.f10=wx.Font(10,wx.FONTFAMILY_DEFAULT,wx.NORMAL,wx.NORMAL,face="AcadNusx")
 		self.Objects()
 		self.Binding()
 		self.MenuBar()
 
 		self.context = Plane(self.RADIUS)
+		self.leftDownStart=None
+		self.leftDownEnd=None
 
 	def Binding(self):
 		self.p1.Bind(wx.EVT_PAINT, self.on_paint)
 		#MOUSE EVENT BIND START#
-		self.p1.Bind(wx.EVT_LEFT_DOWN, self.DownL)
-		self.p1.Bind(wx.EVT_LEFT_UP, self.Up)
+		self.p1.Bind(wx.EVT_LEFT_DOWN, self.LeftDown)
+		self.p1.Bind(wx.EVT_LEFT_UP, self.LeftUp)
+		self.p1.Bind(wx.EVT_RIGHT_DOWN, self.DownRight)
+		wx.EVT_MOUSEWHEEL(self, self.onWheel)
+		wx.EVT_MOTION(self.p1, self.onMotion)
 		#MOUSE EVENT BIND END#
-		
-		self.p1.Bind(wx.EVT_RIGHT_DOWN, self.DownR)
 		
 		self.Bind(wx.EVT_MENU, self.about, id=57)
 
@@ -38,8 +43,32 @@ class Electrython(wx.Frame):
 		self.showAllVectorsCheckBox.Bind(wx.EVT_CHECKBOX,self.refreshClicked)
 		self.showAddedVectorsCheckBox.Bind(wx.EVT_CHECKBOX,self.refreshClicked)
 		self.showFieldCheckBox.Bind(wx.EVT_CHECKBOX,self.refreshClicked)
-	def DownR(self,evt):
+
+	def onWheel(self, event):
+		if event.GetWheelRotation() > 0:
+			self.zoom_in(event)
+		else:
+			self.zoom_out(event)
+	def onMotion(self, event):
+		if self.leftDownStart:
+			self.leftDownEnd = event.GetPosition()
+			self.p1.Refresh()
+
+	def DownRight(self,evt):
 		self.PopupMenu(MyPopupMenu(self, evt.GetPosition(), self.txt_1))
+	def LeftDown(self,event):
+		self.leftDownStart = event.GetPosition()
+		
+		myCursor = wx.Cursor(r"closedhand.cur", wx.BITMAP_TYPE_CUR); 
+		self.p1.SetCursor(myCursor)
+	def LeftUp(self,event):
+		endx, endy = event.GetPosition();
+		startx, starty = self.leftDownStart
+		self.context.movePoints(endx - startx, endy - starty)
+		self.p1.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
+		self.leftDownStart=None
+		self.p1.Refresh()
+
 	def MenuBar(self):
 		menu_bar=wx.MenuBar()
 		file_menu = wx.Menu()
@@ -71,32 +100,25 @@ class Electrython(wx.Frame):
 	def zoom_out(self,evt):
 		self.ZOOM /= 2
 		self.p1.Refresh()
-	def DownL(self,event):
-		UP = True
-		self.MOUSE_EVENT_LIST=[]
-		self.MOUSE_EVENT_LIST.append(event.GetPosition())
-		"""
-		myCursor= wx.Cursor(r"C:\WINDOWS\Cursors\3dgarro.cur",
-					wx.BITMAP_TYPE_CUR)
-		self.SetCursor(myCursor)"""
-		self.p1.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-		self.p1.Refresh()
-
-	def Up(self,event):
-		self.p1.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
-		self.dc.Clear()
 		self.p1.Refresh()
 
 	def clearClicked(self, event):
+		self.context.clear()
 		self.dc.Clear()
 		self.p1.Refresh()
 
 	def refreshClicked(self, event):
 		self.p1.Refresh()
 
+	def drawMovingArrow(self):
+		#self.dc.DrawLine(x, y, endx, endy)
+		x, y = self.leftDownStart
+		endx, endy = self.leftDownEnd
+		self.dc.DrawLine(x, y, endx, endy)
+		self.__drawArrowsByEndpoints__(x, y, endx, endy, self.DELTA_ON_FIELD_LINES)
+		#self.p1.Refresh()
 
 	def update_drawing(self):
-		self.dc.Clear()
 		if self.showAllVectorsCheckBox.GetValue():
 			self.drawAllVectors()
 		if self.showAddedVectorsCheckBox.GetValue():
@@ -181,15 +203,18 @@ class Electrython(wx.Frame):
 		self.dc.DrawLine(*(startPoint + endPoint))
 
 		endPoint = (x1 + rightVector[0], y1 + rightVector[1])
+
 		self.dc.DrawLine(*(startPoint + endPoint))
-	def __normalizeByMax__(self, x, y, Max):
-		r = math.hypot(x, y)
+	def __normalizeByMax__(self, deltax, deltay, Max):
+		r = math.hypot(deltax, deltay)
 		factor = r / Max
-		return (x/factor, y/factor)
+		return (deltax/factor, deltay/factor)
 
 	def on_paint(self, event):
+		print "on_paint"
 		self.dc = wx.PaintDC(self.p1)
-		self.dc.SetBackground(wx.Brush('#999033'))
+		if self.leftDownStart:
+			self.drawMovingArrow()
 		self.update_drawing()
 
 	def about(self,event):
@@ -201,9 +226,8 @@ class Electrython(wx.Frame):
 		info.Developers = ["Gio Eufshi aka Dixtosa aka Kioshimu Garakame aka Gautam Yolo"]
 		wx.AboutBox(info)
 
-
 app = wx.App() 
-frame = Electrython(None, -1, "Electrython v 2.0")
+frame = Electrython(None, -1, "Electrython v2.0")
 frame.Centre()
 frame.Show()
 app.MainLoop()

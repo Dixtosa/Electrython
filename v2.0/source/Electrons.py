@@ -33,6 +33,8 @@ class Plane:
 		self.listOfPoints = []
 		self.radius = radius
 
+	def clear(self):
+		self.listOfPoints = []
 	def clone(self):
 		return copy.deepcopy(self)
 	def getPoints(self):
@@ -75,3 +77,7 @@ class Plane:
 			cumulatedForce[0] += x
 			cumulatedForce[1] += y
 		return tuple(cumulatedForce)
+	def movePoints(self, deltaX, deltaY):
+		for i in self.listOfPoints:
+			i.x += deltaX
+			i.y += deltaY
