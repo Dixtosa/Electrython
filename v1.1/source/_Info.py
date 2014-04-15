@@ -1,0 +1,9 @@
+Full_Name="Electrython"                                     #Name
+Name="Electrython"                                                     #Name Used
+Full_Version="1.1"                                        #Full Version
+Version="1.1"                                                  #Version Used
+Copyright = "(C) Copyright Dixtosa"                            #Copyright
+Description ="Kulon RuleZ"                                         #About Program
+WebSite = "http://dixtosa.wordpress.com"                       #Website
+Developers = ["D!Xware3 Company"]                              #Developers
+License = "GNU"                                                #License
